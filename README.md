@@ -1,61 +1,83 @@
-Step 1: Passive Reconnaissance
-Gather publicly available domain registration and DNS record details without alerting the target infrastructure:
+Step 1 — Passive recon
+
+bash
 whois google.com
+bash
 nslookup google.com
 
-Step 2: Active Reconnaissance &amp; Subnet Sweep
-Discover live hosts within the isolated VirtualBox host-only subnet using ICMP echo / ARP discovery:
+Step 2 — Active recon / ping sweep
+
+bash
 nmap -sn 192.168.56.0/24
 
-Step 3: Port, Service &amp; OS Fingerprinting
-Perform structured port auditing against target 192.168.56.101 across TCP and UDP, saving scan reports:
+Step 3 — Port & service scanning (target: Metasploitable2)
 
-# Full TCP SYN Stealth Scan
+bash
 nmap -sS -p- 192.168.56.101 -oN tcp_scan.txt
-# Top 100 UDP Port Scan
+bash
 sudo nmap -sU --top-ports 100 192.168.56.101 -oN udp_scan.txt
-# Service Version Detection
+bash
 nmap -sV 192.168.56.101 -oN service_scan.txt
-# OS Detection
+bash
 sudo nmap -O 192.168.56.101 -oN os_scan.txt
-# Consolidated Full Assessment (Service Version + OS + All Ports)
+bash
 sudo nmap -sV -O -p- 192.168.56.101 -oA full_scan_report
 
-Step 4: Inspecting Scan Results
-Review comprehensive scan results formatted in standard Nmap text output:
+Step 4 — View your scan results
+
+bash
 cat full_scan_report.nmap
 
-Step 5: Vulnerability Assessment with OpenVAS / GVM
-Deploy and run the Greenbone Vulnerability Management (GVM) automated scanner:
+Step 5 — Install and start OpenVAS/GVM
+
+bash
 sudo apt install gvm -y
+bash
 sudo gvm-setup
+bash
 sudo gvm-check-setup
+bash
 sudo gvm-start
-Access the web UI at https://127.0.0.1:9392, log in with generated admin credentials, navigate to Scans &gt; Tasks &gt;
-New Task, and set the target IP to 192.168.56.101.
-Step 6: Credential Sniffing &amp; Traffic Analysis (Wireshark)
-Demonstrate the vulnerability of cleartext protocols by sniffing unencrypted FTP authentication traffic:
-# Terminal 1: Launch Wireshark
+
+Open Firefox in Kali:
+
+https://127.0.0.1:9392
+
+Login with the admin password printed at the end of gvm-setup → Scans → Tasks → New Task → target 192.168.56.101
+
+Step 6 — Wireshark FTP credential capture
+
+bash
 sudo wireshark
-# Terminal 2: Connect to FTP service on target
+
+Start capture on your host-only interface. In a second terminal:
+
+bash
 ftp 192.168.56.101
-# User: msfadmin | Password: msfadmin
+
+Login with:
+
+msfadmin
+msfadmin
+bash
 exit
 
-In Wireshark, set display filter to &#39;ftp&#39;, right-click any captured packet, and select Follow &gt; TCP Stream to inspect
-credentials transmitted in plaintext.
-Step 7: SYN Flood DoS Traffic Simulation
-Simulate an unmitigated TCP SYN flood attack against port 80 to observe resource exhaustion:
-sudo apt install hping3 -y
-sudo hping3 -S --flood -p 80 192.168.56.101
-# Press Ctrl+C after ~10 seconds
+In Wireshark: type filter ftp and press Enter → right-click a packet → Follow → TCP Stream to see the plaintext login.
 
-Step 8: Host-Based Firewall Hardening (iptables)
-Configure packet filtering rules to block insecure legacy services (Telnet/port 23) while allowing essential services
-(HTTP/port 80):
-# Drop inbound Telnet packets
+Step 7 — SYN flood simulation
+
+bash
+sudo apt install hping3 -y
+bash
+sudo hping3 -S --flood -p 80 192.168.56.101
+
+Press Ctrl+C to stop after ~10 seconds.
+
+Step 8 — Firewall rules (iptables)
+
+bash
 sudo iptables -A INPUT -p tcp --dport 23 -j DROP
-# Explicitly permit inbound HTTP packets
+bash
 sudo iptables -A INPUT -p tcp --dport 80 -j ACCEPT
-# Verify active filter chain rules with packet and byte counters
+bash
 sudo iptables -L -v -n
